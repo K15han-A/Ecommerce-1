@@ -8,6 +8,9 @@ from .models import Product, Cart, CartItem, Address
 
 from django.contrib.auth.decorators import login_required
 
+def index(request):
+    return render(request, 'shopee/index.html')
+
 def product_list(request):
     products = Product.objects.all()
     return render(request, 'shopee/product_list.html', {'products': products})
