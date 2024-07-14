@@ -1,20 +1,49 @@
 # views.py
 
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
-from .models import Product, Cart, CartItem, Address
+from .models import Product, Cart, CartItem, Address, Category
+from django.db.models import Q
 
 from django.contrib.auth.decorators import login_required
 
 def index(request):
     return render(request, 'shopee/index.html')
 
-def product_list(request):
-    products = Product.objects.all()
-    return render(request, 'shopee/product_list.html', {'products': products})
 
+def product_list(request):
+    categories = Category.objects.all()
+    selected_category = request.GET.get('category', None)
+    search_query = request.GET.get('search', '')
+    sort_by = request.GET.get('sort', '')
+
+    products = Product.objects.all()
+
+    if selected_category:
+        products = products.filter(category_id=selected_category)
+
+    if search_query:
+        products = products.filter(Q(name__icontains=search_query) | Q(description__icontains=search_query))
+
+    if sort_by == 'name_asc':
+        products = products.order_by('name')
+    elif sort_by == 'name_desc':
+        products = products.order_by('-name')
+    elif sort_by == 'price_asc':
+        products = products.order_by('price')
+    elif sort_by == 'price_desc':
+        products = products.order_by('-price')
+
+    return render(request, 'shopee/product_list.html', {'products': products, 'categories': categories})
+
+@login_required
+def product_detail(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+    return render(request, 'shopee/product_detail.html', {'product': product})
+
+@login_required
 def cart_view(request):
     user = request.user
     cart = Cart.objects.filter(user=user).first()
@@ -26,11 +55,13 @@ def cart_view(request):
             item.product.image_url = item.product.image.url
     return render(request, 'shopee/cart.html', {'cart_items': cart_items})
 
+@login_required
 def user_detail(request):
     user = request.user
     address = Address.objects.filter(user=user).first()
     return render(request, 'shopee/user_detail.html', {'user': user, 'address': address})
 
+@login_required
 def add_to_cart(request):
     if request.method == 'POST':
         product_id = request.POST.get('product_id')
@@ -44,6 +75,7 @@ def add_to_cart(request):
         messages.success(request, 'Product added to cart successfully.')
     return redirect('product_list')
 
+@login_required
 def update_cart(request):
     if request.method == 'POST':
         cart_item_id = request.POST.get('cart_item_id')
